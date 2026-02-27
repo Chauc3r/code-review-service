@@ -150,7 +150,7 @@ def parse_section(text: str, section_name: str) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-def call_bedrock(model_config: dict, prompt: str) -> dict:
+def call_bedrock(model_config: dict, prompt: str, developer: str = "unknown") -> dict:
     """Call a Bedrock model via the Converse API."""
     try:
         response = bedrock_client.converse(
@@ -160,6 +160,10 @@ def call_bedrock(model_config: dict, prompt: str) -> dict:
             inferenceConfig={
                 "temperature": 0.3,
                 "maxTokens": 4096,
+            },
+            requestMetadata={
+                "developer": developer,
+                "service": "code-review",
             },
         )
         text = response["output"]["message"]["content"][0]["text"]
@@ -243,16 +247,16 @@ def call_openrouter(model_config: dict, prompt: str) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def run_review(diff: str) -> dict:
+def run_review(diff: str, developer: str = "unknown") -> dict:
     """Send diff to all 5 models in parallel, aggregate results."""
     prompt = REVIEW_PROMPT_TEMPLATE.replace("{diff}", diff)
     results = []
 
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {}
-        # Submit all Bedrock models
+        # Submit all Bedrock models (tagged with developer for cost allocation)
         for model in BEDROCK_MODELS:
-            futures[executor.submit(call_bedrock, model, prompt)] = model["name"]
+            futures[executor.submit(call_bedrock, model, prompt, developer)] = model["name"]
         # Submit OpenRouter model
         futures[executor.submit(call_openrouter, OPENROUTER_MODEL, prompt)] = (
             OPENROUTER_MODEL["name"]
@@ -365,7 +369,7 @@ def lambda_handler(event, context):
         diff = diff[:MAX_DIFF_CHARS] + f"\n\n... (truncated, {omitted} chars omitted)"
 
     # Run the review
-    result = run_review(diff)
+    result = run_review(diff, developer)
     result["developer"] = developer
 
     # Log summary

@@ -21,6 +21,7 @@ Globals:
 Resources:
   ReviewApiKeysTable:
     Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
     Properties:
       TableName: !Ref DynamoDBTableName
       BillingMode: PAY_PER_REQUEST
