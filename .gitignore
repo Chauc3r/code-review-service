@@ -18,6 +18,11 @@ venv/
 .DS_Store
 Thumbs.db
 
+# Build artifacts
+.build/
+lambda.zip
+samconfig.toml
+
 # Secrets
 .env
 *.pem

@@ -41,12 +41,17 @@ echo -e "${BLUE}Sending diff for review...${RESET}"
 echo "  Diff size: ${DIFF_SIZE} characters"
 echo
 
+# Write diff to temp file to avoid shell metacharacter issues
+DIFF_FILE=$(mktemp)
+printf '%s' "$DIFF" > "$DIFF_FILE"
+trap 'rm -f "$DIFF_FILE"' EXIT
+
 # POST diff to the review service
 RESPONSE=$(curl -s -w "\n%{http_code}" \
     -X POST "$REVIEW_URL" \
     -H "Content-Type: text/plain" \
     -H "x-api-key: $REVIEW_API_KEY" \
-    --data-binary "$DIFF" \
+    --data-binary @"$DIFF_FILE" \
     --max-time 300)
 
 HTTP_CODE=$(echo "$RESPONSE" | tail -1)

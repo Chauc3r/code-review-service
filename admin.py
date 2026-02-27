@@ -9,6 +9,7 @@ Usage:
     python admin.py usage
 """
 
+import os
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -17,7 +18,7 @@ import boto3
 
 TABLE_NAME = "review-api-keys"
 REGION = "eu-west-2"
-PROFILE = "Tealbroth"
+PROFILE = os.environ.get("AWS_PROFILE", "ZebraWork")
 
 session = boto3.Session(profile_name=PROFILE, region_name=REGION)
 dynamodb = session.resource("dynamodb")
