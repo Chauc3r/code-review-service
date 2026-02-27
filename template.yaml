@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Multi-model code review Lambda service
+
+Parameters:
+  OpenRouterApiKey:
+    Type: String
+    Description: API key for OpenRouter (Gemini 3.1 Pro)
+    NoEcho: true
+  DynamoDBTableName:
+    Type: String
+    Default: review-api-keys
+    Description: DynamoDB table name for API key storage
+
+Globals:
+  Function:
+    Timeout: 300
+    MemorySize: 512
+    Runtime: python3.12
+
+Resources:
+  ReviewApiKeysTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref DynamoDBTableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: api_key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: api_key
+          KeyType: HASH
+      Tags:
+        - Key: project
+          Value: code-review-service
+
+  CodeReviewFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: code-review-service
+      Handler: handler.lambda_handler
+      CodeUri: src/
+      Environment:
+        Variables:
+          OPENROUTER_API_KEY: !Ref OpenRouterApiKey
+          DYNAMODB_TABLE: !Ref DynamoDBTableName
+      FunctionUrlConfig:
+        AuthType: NONE
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource:
+                - !Sub arn:aws:bedrock:eu-west-2::foundation-model/qwen.qwen3-coder-next
+                - !Sub arn:aws:bedrock:eu-west-2::foundation-model/deepseek.v3.2
+                - !Sub arn:aws:bedrock:eu-west-2::foundation-model/moonshotai.kimi-k2.5
+                - !Sub arn:aws:bedrock:eu-west-2::foundation-model/mistral.devstral-2-123b
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:UpdateItem
+              Resource: !GetAtt ReviewApiKeysTable.Arn
+      Tags:
+        project: code-review-service
+
+Outputs:
+  FunctionUrl:
+    Description: Lambda Function URL for the code review service
+    Value: !GetAtt CodeReviewFunctionUrl.FunctionUrl
+  DynamoDBTable:
+    Description: DynamoDB table for API keys
+    Value: !Ref ReviewApiKeysTable
