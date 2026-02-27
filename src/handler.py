@@ -100,21 +100,24 @@ dynamodb = boto3.resource("dynamodb", region_name="eu-west-2")
 
 
 def authenticate(api_key: str) -> dict | None:
-    """Validate API key against DynamoDB. Returns developer info or None."""
+    """Validate API key against DynamoDB. Returns developer info or None.
+
+    Uses a conditional update to atomically check enabled=true AND increment
+    usage_count in a single operation, avoiding read-then-write race conditions.
+    """
     table = dynamodb.Table(DYNAMODB_TABLE)
-    resp = table.get_item(Key={"api_key": api_key})
-    item = resp.get("Item")
-    if not item:
+    try:
+        resp = table.update_item(
+            Key={"api_key": api_key},
+            UpdateExpression="ADD usage_count :inc",
+            ConditionExpression="attribute_exists(api_key) AND enabled = :true",
+            ExpressionAttributeValues={":inc": 1, ":true": True},
+            ReturnValues="ALL_NEW",
+        )
+        item = resp.get("Attributes", {})
+        return {"developer_name": item.get("developer_name", "unknown")}
+    except dynamodb.meta.client.exceptions.ConditionalCheckFailedException:
         return None
-    if not item.get("enabled", False):
-        return None
-    # Increment usage count atomically
-    table.update_item(
-        Key={"api_key": api_key},
-        UpdateExpression="ADD usage_count :inc",
-        ExpressionAttributeValues={":inc": 1},
-    )
-    return {"developer_name": item.get("developer_name", "unknown")}
 
 
 # ---------------------------------------------------------------------------
@@ -185,7 +188,7 @@ def call_bedrock(model_config: dict, prompt: str, developer: str = "unknown") ->
         return {
             "model": model_config["name"],
             "status": "error",
-            "error": str(e),
+            "error": f"Model call failed ({type(e).__name__})",
             "verdict": "SKIP",
             "issues": [],
             "notes": [],
@@ -234,7 +237,7 @@ def call_openrouter(model_config: dict, prompt: str) -> dict:
         return {
             "model": model_config["name"],
             "status": "error",
-            "error": str(e),
+            "error": f"Model call failed ({type(e).__name__})",
             "verdict": "SKIP",
             "issues": [],
             "notes": [],
@@ -271,18 +274,18 @@ def run_review(diff: str, developer: str = "unknown") -> dict:
     responded = pass_count + fail_count
 
     if responded < 3:
-        final_verdict = "PASS"
-        warning = f"Only {responded}/5 models responded — defaulting to PASS"
+        final_verdict = "FAIL"
+        warning = f"Only {responded}/5 models responded — defaulting to FAIL (quorum not reached)"
     else:
         final_verdict = "PASS" if pass_count > fail_count else "FAIL"
         warning = None
 
-    # Deduplicate issues (first 50 chars, case-insensitive)
+    # Deduplicate issues (full normalized text)
     seen = set()
     all_issues = []
     for r in results:
         for issue in r["issues"]:
-            key = issue[:50].lower().strip()
+            key = issue.lower().strip()
             if key not in seen:
                 seen.add(key)
                 all_issues.append(issue)
@@ -353,7 +356,14 @@ def lambda_handler(event, context):
     if event.get("isBase64Encoded", False):
         import base64
 
-        body = base64.b64decode(body).decode("utf-8")
+        try:
+            body = base64.b64decode(body).decode("utf-8")
+        except (ValueError, UnicodeDecodeError):
+            return {
+                "statusCode": 400,
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({"error": "Invalid request body encoding"}),
+            }
 
     if not body or not body.strip():
         return {

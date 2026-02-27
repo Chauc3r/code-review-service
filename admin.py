@@ -9,6 +9,7 @@ Usage:
     python admin.py usage
 """
 
+import os
 import sys
 import uuid
 from datetime import datetime, timezone
