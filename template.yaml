@@ -19,21 +19,8 @@ Globals:
     Runtime: python3.12
 
 Resources:
-  ReviewApiKeysTable:
-    Type: AWS::DynamoDB::Table
-    DeletionPolicy: Retain
-    Properties:
-      TableName: !Ref DynamoDBTableName
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: api_key
-          AttributeType: S
-      KeySchema:
-        - AttributeName: api_key
-          KeyType: HASH
-      Tags:
-        - Key: project
-          Value: code-review-service
+  # DynamoDB table 'review-api-keys' is managed outside this stack
+  # (pre-created with API keys). Reference by ARN in IAM policy below.
 
   CodeReviewFunction:
     Type: AWS::Serverless::Function
@@ -62,7 +49,7 @@ Resources:
               Action:
                 - dynamodb:GetItem
                 - dynamodb:UpdateItem
-              Resource: !GetAtt ReviewApiKeysTable.Arn
+              Resource: !Sub arn:aws:dynamodb:eu-west-2:${AWS::AccountId}:table/${DynamoDBTableName}
       Tags:
         project: code-review-service
 
@@ -72,4 +59,4 @@ Outputs:
     Value: !GetAtt CodeReviewFunctionUrl.FunctionUrl
   DynamoDBTable:
     Description: DynamoDB table for API keys
-    Value: !Ref ReviewApiKeysTable
+    Value: !Ref DynamoDBTableName
