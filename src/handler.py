@@ -107,11 +107,17 @@ def authenticate(api_key: str) -> dict | None:
     """
     table = dynamodb.Table(DYNAMODB_TABLE)
     try:
+        from datetime import datetime, timezone
+
         resp = table.update_item(
             Key={"api_key": api_key},
-            UpdateExpression="ADD usage_count :inc",
+            UpdateExpression="ADD usage_count :inc SET last_used = :now",
             ConditionExpression="attribute_exists(api_key) AND enabled = :true",
-            ExpressionAttributeValues={":inc": 1, ":true": True},
+            ExpressionAttributeValues={
+                ":inc": 1,
+                ":true": True,
+                ":now": datetime.now(timezone.utc).isoformat(),
+            },
             ReturnValues="ALL_NEW",
         )
         item = resp.get("Attributes", {})

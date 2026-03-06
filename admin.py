@@ -80,15 +80,20 @@ def show_usage() -> None:
         print("No API keys found.")
         return
     total = 0
-    print(f"{'Developer':<20} {'Uses':<10} {'Last Created'}")
-    print("-" * 60)
+    print(f"{'Developer':<20} {'Uses':<10} {'Last Used':<28} {'Created'}")
+    print("-" * 90)
     for item in sorted(items, key=lambda x: x.get("usage_count", 0), reverse=True):
         uses = item.get("usage_count", 0)
         total += uses
+        last_used = item.get("last_used", "never")
+        if last_used != "never":
+            # Show just date + time, trim the microseconds
+            last_used = last_used[:19].replace("T", " ")
         print(
             f"{item.get('developer_name', '?'):<20} "
             f"{uses:<10} "
-            f"{item.get('created_at', '?')}"
+            f"{last_used:<28} "
+            f"{item.get('created_at', '?')[:10]}"
         )
     print(f"\nTotal reviews: {total}")
 
