@@ -20,7 +20,7 @@ git diff → POST → Lambda Function URL → 5 models in parallel → majority 
 ### Prerequisites
 
 - AWS SAM CLI installed
-- AWS credentials configured (profile: with a named profile)
+- AWS credentials configured (with a named profile)
 - An OpenRouter API key
 
 ### Deploy
@@ -165,4 +165,4 @@ Then select the "Code Review" chat mode in Copilot Chat to run reviews.
 | Region | eu-west-2 |
 | Max diff size | 50,000 chars (truncated beyond) |
 | Majority threshold | 3 of 5 models must agree |
-| Fallback | < 3 responses → PASS with warning |
+| Fallback | < 3 responses → FAIL (quorum not reached) |

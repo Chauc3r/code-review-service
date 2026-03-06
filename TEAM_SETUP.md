@@ -7,7 +7,7 @@ We now have a shared code review service that sends your changes to **5 differen
 ## What You Need
 
 1. Your **API key** (I'll DM this to you separately)
-2. The **review endpoint**: `YOUR_REVIEW_URL_HERE`
+2. The **review endpoint** (I'll DM this to you separately)
 3. VS Code with GitHub Copilot Chat installed
 4. Python 3 installed (any recent version)
 
